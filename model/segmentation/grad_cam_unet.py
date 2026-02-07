@@ -33,41 +33,43 @@ def grad_cam_unet(model, image_tensor, target_layer='enc1'):
     hook_forward = target.register_forward_hook(save_features)
     hook_backward = target.register_full_backward_hook(save_grads)
 
-    # Forward pass
-    model.eval()
-    image_tensor.requires_grad_(True)
-    output = model(image_tensor)
-    
-    # Backward pass - use the mean of the output as the target
-    output.mean().backward()
-
-    # Get the feature maps and gradients
-    if len(feature_maps) > 0 and len(gradients) > 0:
-        fmap = feature_maps[0][0]  # First batch item
-        grad = gradients[0][0]  # First batch item
-
-        # Calculate weights
-        weights = grad.mean(dim=(1, 2))
+    try:
+        # Forward pass
+        model.eval()
+        # Clone tensor to avoid modifying original
+        input_tensor = image_tensor.clone().requires_grad_(True)
+        output = model(input_tensor)
         
-        # Generate CAM
-        cam = torch.zeros(fmap.shape[1:], dtype=torch.float32)
-        for i, w in enumerate(weights):
-            cam += w * fmap[i]
+        # Backward pass - use the mean of the output as the target
+        output.mean().backward()
 
-        cam = cam.detach().cpu().numpy()
-        cam = np.maximum(cam, 0)
-        if cam.max() > 0:
-            cam = cam / cam.max()
+        # Get the feature maps and gradients
+        if len(feature_maps) > 0 and len(gradients) > 0:
+            fmap = feature_maps[0][0]  # First batch item
+            grad = gradients[0][0]  # First batch item
 
-        cam = cv2.resize(cam, (256, 256))
-        cam = (cam * 255).astype(np.uint8)
-    else:
-        # Return empty heatmap if hooks didn't capture anything
-        cam = np.zeros((256, 256), dtype=np.uint8)
+            # Calculate weights
+            weights = grad.mean(dim=(1, 2))
+            
+            # Generate CAM
+            cam = torch.zeros(fmap.shape[1:], dtype=torch.float32)
+            for i, w in enumerate(weights):
+                cam += w * fmap[i]
 
-    # Remove hooks
-    hook_forward.remove()
-    hook_backward.remove()
+            cam = cam.detach().cpu().numpy()
+            cam = np.maximum(cam, 0)
+            if cam.max() > 0:
+                cam = cam / cam.max()
+
+            cam = cv2.resize(cam, (256, 256))
+            cam = (cam * 255).astype(np.uint8)
+        else:
+            # Return empty heatmap if hooks didn't capture anything
+            cam = np.zeros((256, 256), dtype=np.uint8)
+    finally:
+        # Always remove hooks to prevent memory leaks
+        hook_forward.remove()
+        hook_backward.remove()
 
     return cam
 

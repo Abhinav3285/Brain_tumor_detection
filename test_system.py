@@ -195,14 +195,14 @@ def test_staging():
     # Image dimension: 640x640 = 409,600 pixels total
     total_area = 640 * 640
     
-    # Test cases - carefully traced:
+    # Test cases - carefully traced through the OR logic
     test_cases = [
         (2000, "Stage I"),      # 0.49%: area < 3000 ✓ -> Stage I
         (6000, "Stage I"),      # 1.46%: pct < 2 ✓ -> Stage I  
-        (12000, "Stage II"),    # 2.93%: pct < 5 ✓ -> Stage II
-        (9000, "Stage II"),     # 2.20%: area < 8000 is False, but pct < 5 ✓ -> Stage II
-        (25000, "Stage III"),   # 6.10%: area > 15000, but pct < 10 ✓ -> Stage III
-        (50000, "Stage IV"),    # 12.21%: area > 15000 AND pct > 10 -> Stage IV
+        (12000, "Stage II"),    # 2.93%: area >= 3000, pct >= 2, but pct < 5 ✓ -> Stage II
+        (10000, "Stage II"),    # 2.44%: area >= 8000, pct >= 2, but pct < 5 ✓ -> Stage II
+        (25000, "Stage III"),   # 6.10%: area >= 15000, pct >= 5, but pct < 10 ✓ -> Stage III
+        (50000, "Stage IV"),    # 12.21%: area >= 15000 AND pct >= 10 -> Stage IV
     ]
     
     all_passed = True
@@ -219,10 +219,14 @@ def test_staging():
         else:
             stage = "Stage IV"
         
-        status = "✅" if stage.startswith(expected_stage) else "❌"
+        # Check if the stage matches (compare just the roman numeral part)
+        stage_num = stage.split()[1]  # Extract "I", "II", "III", or "IV"
+        expected_num = expected_stage.split()[1]
+        
+        status = "✅" if stage_num == expected_num else "❌"
         print(f"{status} Area={area:,}px² ({percentage:.2f}%) -> {stage}")
         
-        if not stage.startswith(expected_stage):
+        if stage_num != expected_num:
             all_passed = False
     
     if all_passed:

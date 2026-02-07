@@ -125,13 +125,6 @@ def determine_tumor_stage(area_pixels, tumor_type, image_dimensions):
         color = "#dc3545"  # Red
         description = "Very large tumor. Urgent intervention required."
     
-    # Adjust based on tumor type (some types are more aggressive)
-    if tumor_type.lower() == "glioma" and area_pixels > 5000:
-        # Gliomas can be more aggressive
-        stage = stage.replace("Moderate", "Advanced")
-        if "Stage II" in stage:
-            color = "#fd7e14"
-    
     return stage, color, description
 
 # -------------------------------------------------
@@ -229,7 +222,7 @@ if uploaded_files and model:
                         cid = int(box.cls[0])
                         label = model.names[cid]
                         
-                        # Skip if it's "no_tumor" class
+                        # Skip if it's "no_tumor" class (case-insensitive)
                         if label.lower() == "no_tumor":
                             continue
                         
