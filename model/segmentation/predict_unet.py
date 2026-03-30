@@ -2,15 +2,21 @@
 import torch
 import numpy as np
 import cv2
+import os
 from .unet_model import UNet   # ✅ RELATIVE IMPORT
 
-MODEL_PATH = "model/segmentation/weights/unet_best.pth"
+# Get the absolute path to the model file
+MODEL_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(MODEL_DIR, "unet_best.pth")
 
 device = torch.device("cpu")
 
 model = UNet().to(device)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
-model.eval()
+if os.path.exists(MODEL_PATH):
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=device, weights_only=True))
+    model.eval()
+else:
+    print(f"Warning: U-Net model not found at {MODEL_PATH}")
 
 def predict_mask(image_np):
     img = cv2.resize(image_np, (256, 256))

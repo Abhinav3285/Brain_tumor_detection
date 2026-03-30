@@ -1,0 +1,138 @@
+@startuml Brain_Tumor_Detection_Class_Diagram
+
+' Configuration
+skinparam classAttributeIconSize 0
+skinparam class {
+    BackgroundColor<<external>> LightYellow
+    BackgroundColor<<pytorch>> LightBlue
+    BackgroundColor<<functional>> LightGreen
+    BackgroundColor<<module>> LightCyan
+}
+
+' Core Neural Network Classes
+class UNet {
+    - enc1 : Sequential
+    - pool : MaxPool2d
+    - dec1 : Sequential
+    + __init__()
+    + forward(x: Tensor) : Tensor
+}
+
+class SegmentationDataset {
+    - image_dir : str
+    - mask_dir : str
+    - images : List[str]
+    - masks : List[str]
+    - transform : Compose
+    + __init__(image_dir, mask_dir)
+    + __len__() : int
+    + __getitem__(idx) : Tuple
+}
+
+' External Dependencies
+class YOLO <<external>> {
+    + names : Dict
+    + predict(source, conf) : Results
+    + train(data, epochs, imgsz, batch) : Results
+}
+
+class Module <<pytorch>> {
+    + forward(x) : Tensor
+    + eval()
+    + to(device) : Module
+}
+
+class Dataset <<pytorch>> {
+    + __len__() : int
+    + __getitem__(idx) : Any
+}
+
+' Application Components
+class StreamlitApp <<functional>> {
+    - PROJECT_ROOT : str
+    - SEGMENTATION_AVAILABLE : bool
+    - GRADCAM_AVAILABLE : bool
+    - UNET_PATH : str
+    - model : YOLO
+    - unet_model : UNet
+    + load_yolo() : YOLO
+    + load_unet() : UNet
+    + generate_yolo_cam(image_np, results) : ndarray
+    + generate_unet_gradcam(image_np, unet_model) : ndarray
+    + determine_tumor_stage(area_pixels, tumor_type, image_dimensions) : Tuple
+}
+
+' Utility Modules
+class GradCAMUtils <<module>> {
+    + grad_cam_unet(model, image_tensor, target_layer) : ndarray
+    + generate_gradcam_overlay(image_np, cam) : ndarray
+}
+
+class PredictionUtils <<module>> {
+    - MODEL_DIR : str
+    - MODEL_PATH : str
+    - device : torch.device
+    - model : UNet
+    + predict_mask(image_np) : ndarray
+}
+
+class TrainingModule <<module>> {
+    + train_model() : Results
+    + train_brain_tumor_model() : Results
+}
+
+' Inheritance Relationships
+UNet --|> Module : extends
+SegmentationDataset --|> Dataset : extends
+
+' Usage/Dependency Relationships
+StreamlitApp ..> YOLO : uses
+StreamlitApp ..> UNet : uses
+StreamlitApp ..> GradCAMUtils : uses
+StreamlitApp ..> PredictionUtils : uses
+
+GradCAMUtils ..> UNet : processes
+PredictionUtils ..> UNet : instantiates
+
+TrainingModule ..> YOLO : trains
+TrainingModule ..> SegmentationDataset : uses
+
+' Composition
+UNet *-- "1" Sequential : enc1
+UNet *-- "1" MaxPool2d : pool
+UNet *-- "1" Sequential : dec1
+
+SegmentationDataset *-- "1" Compose : transform
+
+' Notes
+note right of UNet
+  Semantic Segmentation Model
+  - Input: 3-channel image
+  - Output: 1-channel mask
+  - Architecture: Simplified U-Net
+end note
+
+note right of YOLO
+  External Ultralytics YOLOv8
+  - Detects 4 classes:
+    * Glioma
+    * Meningioma
+    * Pituitary
+    * No Tumor
+end note
+
+note bottom of StreamlitApp
+  Main Web Application
+  - Provides UI for tumor analysis
+  - Integrates all components
+  - Handles user interactions
+end note
+
+note left of GradCAMUtils
+  Explainable AI Module
+  - Visualizes model attention
+  - Uses forward & backward hooks
+  - Generates heatmaps
+end note
+
+@enduml
