@@ -1,0 +1,318 @@
+# Brain Tumor Detection System - Simplified Class Diagram
+
+## Quick Visual Reference
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    BRAIN TUMOR DETECTION SYSTEM                         │
+│                        Class Architecture                               │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                         CORE CLASSES                                      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│         UNet                │  (Neural Network)
+├─────────────────────────────┤
+│ Attributes:                 │
+│  - enc1: Sequential         │
+│  - pool: MaxPool2d          │
+│  - dec1: Sequential         │
+├─────────────────────────────┤
+│ Methods:                    │
+│  + __init__()               │
+│  + forward(x) → Tensor      │
+└─────────────────────────────┘
+         ↑
+         │ inherits from
+         │
+    ┌────────────┐
+    │torch.nn.   │
+    │  Module    │
+    └────────────┘
+
+
+┌─────────────────────────────┐
+│  SegmentationDataset        │  (Data Loader)
+├─────────────────────────────┤
+│ Attributes:                 │
+│  - image_dir: str           │
+│  - mask_dir: str            │
+│  - images: List[str]        │
+│  - masks: List[str]         │
+│  - transform: Compose       │
+├─────────────────────────────┤
+│ Methods:                    │
+│  + __init__(image_dir,      │
+│             mask_dir)       │
+│  + __len__() → int          │
+│  + __getitem__(idx) → Tuple │
+└─────────────────────────────┘
+         ↑
+         │ inherits from
+         │
+    ┌────────────┐
+    │torch.utils.│
+    │data.Dataset│
+    └────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      EXTERNAL DEPENDENCIES                                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────┐
+│        YOLO                 │  (Ultralytics YOLOv8)
+├─────────────────────────────┤
+│ Attributes:                 │
+│  + names: Dict              │
+├─────────────────────────────┤
+│ Methods:                    │
+│  + predict(source, conf)    │
+│      → Results              │
+│  + train(data, epochs,      │
+│          imgsz, batch)      │
+│      → Results              │
+└─────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                      FUNCTIONAL MODULES                                   │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      StreamlitApp                               │
+│                    (Main Application)                           │
+├─────────────────────────────────────────────────────────────────┤
+│ Global Variables:                                               │
+│  - PROJECT_ROOT: str                                            │
+│  - SEGMENTATION_AVAILABLE: bool                                 │
+│  - GRADCAM_AVAILABLE: bool                                      │
+│  - UNET_PATH: str                                               │
+│  - model: YOLO                                                  │
+│  - unet_model: UNet                                             │
+├─────────────────────────────────────────────────────────────────┤
+│ Functions:                                                      │
+│  + load_yolo() → YOLO                                           │
+│  + load_unet() → UNet                                           │
+│  + generate_yolo_cam(image_np, results) → ndarray              │
+│  + generate_unet_gradcam(image_np, unet_model) → ndarray       │
+│  + determine_tumor_stage(area_pixels, tumor_type,              │
+│                          image_dimensions) → Tuple             │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │ uses
+         ├──────────────┬──────────────┬──────────────┐
+         ↓              ↓              ↓              ↓
+    ┌────────┐    ┌────────┐    ┌─────────────┐ ┌─────────────┐
+    │  YOLO  │    │  UNet  │    │ GradCAMUtils│ │Prediction   │
+    │        │    │        │    │             │ │Utils        │
+    └────────┘    └────────┘    └─────────────┘ └─────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    GradCAMUtils Module                          │
+│               (Visualization & Explainability)                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Functions:                                                      │
+│  + grad_cam_unet(model: UNet,                                   │
+│                  image_tensor: Tensor,                          │
+│                  target_layer: str = 'enc1')                    │
+│      → ndarray                                                  │
+│                                                                 │
+│  + generate_gradcam_overlay(image_np: ndarray,                  │
+│                             cam: ndarray)                       │
+│      → ndarray                                                  │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │ processes
+         ↓
+    ┌────────┐
+    │  UNet  │
+    └────────┘
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   PredictionUtils Module                        │
+│                 (Inference & Segmentation)                      │
+├─────────────────────────────────────────────────────────────────┤
+│ Global Variables:                                               │
+│  - MODEL_DIR: str                                               │
+│  - MODEL_PATH: str                                              │
+│  - device: torch.device                                         │
+│  - model: UNet                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│ Functions:                                                      │
+│  + predict_mask(image_np: ndarray) → ndarray                    │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │ instantiates & uses
+         ↓
+    ┌────────┐
+    │  UNet  │
+    └────────┘
+
+
+┌─────────────────────────────────────────────────────────────────┐
+│                   TrainingModule                                │
+│                  (Model Training)                               │
+├─────────────────────────────────────────────────────────────────┤
+│ Functions:                                                      │
+│  + train_model() → Results                                      │
+│  + train_brain_tumor_model() → Results                          │
+└─────────────────────────────────────────────────────────────────┘
+         │
+         │ trains & uses
+         ├──────────────┬──────────────┐
+         ↓              ↓
+    ┌────────┐    ┌──────────────────┐
+    │  YOLO  │    │Segmentation      │
+    │        │    │Dataset           │
+    └────────┘    └──────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        COMPONENT INTERACTIONS                             │
+└──────────────────────────────────────────────────────────────────────────┘
+
+User Input (MRI Image)
+         │
+         ├──── Detection Pipeline ────────┐
+         │                                 ↓
+         │                          ┌──────────┐
+         │                          │  YOLO    │
+         │                          │  Model   │
+         │                          └────┬─────┘
+         │                               │
+         │                               ↓
+         │                      Bounding Boxes +
+         │                      Classifications
+         │                               │
+         │                               ↓
+         │                      ┌────────────────┐
+         │                      │Staging Logic   │
+         │                      └────────────────┘
+         │
+         ├──── Segmentation Pipeline ─────┐
+         │                                 ↓
+         │                          ┌──────────┐
+         │                          │  UNet    │
+         │                          │  Model   │
+         │                          └────┬─────┘
+         │                               │
+         │                               ↓
+         │                      Segmentation Mask
+         │                               │
+         │                               ↓
+         │                      ┌────────────────┐
+         │                      │Overlay on Image│
+         │                      └────────────────┘
+         │
+         └──── Grad-CAM Pipeline ────────┐
+                                         ↓
+                                  ┌──────────┐
+                                  │  UNet +  │
+                                  │Grad-CAM  │
+                                  │ Utils    │
+                                  └────┬─────┘
+                                       │
+                                       ↓
+                                Attention Heatmap
+                                       │
+                                       ↓
+                                ┌────────────────┐
+                                │Heatmap Overlay │
+                                └────────────────┘
+         │
+         └──────────── All Results ────────────┐
+                                               ↓
+                                      ┌────────────────┐
+                                      │  Streamlit UI  │
+                                      │  - Detection   │
+                                      │  - Grad-CAM    │
+                                      │  - Segmentation│
+                                      │  - Analysis    │
+                                      └────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          KEY RELATIONSHIPS                                │
+└──────────────────────────────────────────────────────────────────────────┘
+
+Inheritance:
+  UNet ──────────────> torch.nn.Module
+  SegmentationDataset ──────────────> torch.utils.data.Dataset
+
+Dependencies (uses):
+  StreamlitApp ──────> YOLO, UNet, GradCAMUtils, PredictionUtils
+  GradCAMUtils ──────> UNet
+  PredictionUtils ────> UNet
+  TrainingModule ─────> YOLO, SegmentationDataset
+
+Composition:
+  UNet contains:
+    - enc1 (Sequential)
+    - pool (MaxPool2d)
+    - dec1 (Sequential)
+  
+  SegmentationDataset contains:
+    - transform (Compose)
+    - images list
+    - masks list
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        ARCHITECTURE SUMMARY                               │
+└──────────────────────────────────────────────────────────────────────────┘
+
+Total Components:
+  ✓ 2 Core Classes (UNet, SegmentationDataset)
+  ✓ 1 External Class (YOLO)
+  ✓ 4 Functional Modules (StreamlitApp, GradCAMUtils, PredictionUtils,
+                          TrainingModule)
+
+Design Pattern: Modular Architecture with Separation of Concerns
+
+Layers:
+  1. Presentation Layer: Streamlit UI
+  2. Business Logic Layer: Staging, visualization generators
+  3. Model Layer: UNet, YOLO
+  4. Data Layer: SegmentationDataset
+  5. Utility Layer: Grad-CAM, prediction utilities
+
+Technology Stack:
+  • PyTorch: Deep learning framework
+  • Ultralytics YOLOv8: Object detection
+  • Streamlit: Web application framework
+  • OpenCV & NumPy: Image processing
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                              FILES                                        │
+└──────────────────────────────────────────────────────────────────────────┘
+
+app/app.py                      → StreamlitApp
+model/segmentation/unet_model.py        → UNet class
+model/segmentation/dataset.py           → SegmentationDataset class
+model/segmentation/grad_cam_unet.py     → GradCAMUtils module
+model/segmentation/predict_unet.py      → PredictionUtils module
+model/train_yolo.py                     → TrainingModule
+train.py                                → TrainingModule (alternative)
+test_system.py                          → Testing utilities
+
+```
+
+## Legend
+
+```
+┌─────────────┐
+│   Class     │  = Object-Oriented Class (has __init__, methods)
+└─────────────┘
+
+┌─────────────┐
+│  «module»   │  = Functional Module (functions only, no class)
+└─────────────┘
+
+┌─────────────┐
+│ «external» │  = External dependency (not in project)
+└─────────────┘
+
+  ──────>  = Inheritance (extends/inherits from)
+  ─ ─ ─>  = Dependency (uses)
+  ═════>  = Composition (contains)
+```
